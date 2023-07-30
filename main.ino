@@ -1,192 +1,143 @@
 #include <Arduino.h>
 #include <math.h>
+#include "RobotController.h"
 
-const int servoPin1 = 9; 
-const int servoPin2 = 10; 
+float t = 0;
 
-struct Angles {
-  float a1;
-  float a2;
-};
+int ledPin = 7;
+int servoPin1 = 9;
+int servoPin2 = 10;
+RobotController controller(17, 17, 17, 17, 1);
 
-struct Point {
-  float x;
-  float y;
-};
+bool animate = false;
 
-const Angles startAngles = {100, 100};
-Angles servoAngles = startAngles;
-Angles targetAngles = startAngles;
+void setup()
+{	
+	pinMode(ledPin, OUTPUT);
+	digitalWrite(ledPin, HIGH);
+	pinMode(servoPin1, OUTPUT);
+	pinMode(servoPin2, OUTPUT);
+	Serial.begin(9600);
 
-Point targetLocation = {10, 10};
-
-int moveInterval = 100;
-
-double t = 0;
-
-struct AsyncTask {
-  unsigned long interval; // The time interval in milliseconds
-  unsigned long previousMillis; // Variable to store the last time the task was executed
-  void (*taskFunction)(); // Function pointer for the task
-};
-
-const int MAX_TASKS = 1; // Maximum number of asynchronous tasks
-AsyncTask tasks[MAX_TASKS]; 
-
-void addAsyncTask(unsigned long interval, void (*taskFunction)()) {
-  static int taskIndex = 0;
-
-  if (taskIndex < MAX_TASKS) {
-    tasks[taskIndex].interval = interval;
-    tasks[taskIndex].previousMillis = millis();
-    tasks[taskIndex].taskFunction = taskFunction;
-    taskIndex++;
-  }
+	delay(100);
+	Serial.println("Robot ready");
 }
 
-void moveServo(int angle, int servoPin) {
-  int pulseWidth = map(angle, 0, 180, 500, 2500); // Map the angle to a pulse width between 500us to 2500us
-  digitalWrite(servoPin, HIGH); // Set the pin high
-  delayMicroseconds(pulseWidth); // Wait for the desired pulse width
-  digitalWrite(servoPin, LOW); // Set the pin low
-  delay(20); // Give some time before the next movement (adjust this if needed)
-
-  //Serial.println(angle);
+void moveServo(float angle, int servoPin)
+{
+	int pulseWidth = map(angle, 0, 180, 500, 2500); // Map the angle to a pulse width between 500us to 2500us
+	digitalWrite(servoPin, HIGH);					// Set the pin high
+	delayMicroseconds(pulseWidth);					// Wait for the desired pulse width
+	digitalWrite(servoPin, LOW);					// Set the pin low
+	delay(20);										// Give some time before the next movement (adjust this if needed)
 }
 
-void setup() {
-  pinMode(servoPin1, OUTPUT);
-  pinMode(servoPin2, OUTPUT);
-  Serial.begin(9600);
+void loop()
+{
+	// getAngleInput(&targetAngles);
+	getInput();
 
-  addAsyncTask(moveInterval, task); 
+	if (animate) animateObject(t);
+	// animateCircle(&targetAngles, &t);
+	controller.updateAngles();
+	moveServo(controller.getCurrentAngle1(), servoPin1);
+	moveServo(controller.getCurrentAngle2(), servoPin2);
 
-  delay(100);
-  Serial.println("Robot ready");
 }
 
-void loop() {
-	// Call all the asynchronous functions
-	for (int i = 0; i < MAX_TASKS; i++) {
-		if (millis() - tasks[i].previousMillis >= tasks[i].interval) {
-		tasks[i].previousMillis = millis();
-		tasks[i].taskFunction();
+void getInput()
+{
+	if (Serial.available())
+	{
+		char serialData[10]; // Assuming the input won't exceed 10 characters
+		byte index = 0;
+
+		while (Serial.available() && index < 9)
+		{
+			char incomingChar = Serial.read();
+			if (incomingChar == '\n')
+			{
+				break;
+			}
+			serialData[index++] = incomingChar;
+		}
+		serialData[index] = '\0';
+
+		char command = serialData[0];
+
+		bool inRange = false;
+		if (command == 'x' || command == 'y')
+		{
+			int value = strtol(serialData + 1, NULL, 10);
+
+			if (command == 'x')
+			{
+				inRange = controller.moveTo(value, controller.getTargetY());
+			}
+			else if (command == 'y')
+			{
+				inRange = controller.moveTo(controller.getTargetX(), value);
+			}
+		}
+		else if (command == 'a')
+		{
+			inRange = controller.moveX(2);
+		}
+		else if (command == 'd')
+		{
+			inRange = controller.moveX(-2);
+		}
+		else if (command == 'w')
+		{
+			inRange = controller.moveY(2);
+		}
+		else if (command == 's')
+		{
+			inRange = controller.moveY(-2);
+		}
+		else if (command == 'r')
+		{
+			inRange = controller.moveToDefault();
+		}
+		else if (command == 'c') {
+			animate = !animate;
+
+			if (animate) {
+				t = 0;
+				animateObject(0)
+			}
+
+			Serial.println("Animation " + String(animate ? "enabled" : "disabled"));
+			return;
+		}
+		else
+		{
+			return;
+		}
+
+		if (!inRange)
+		{
+			Serial.println("Location cannot be reached, maximum reach is " + String(controller.getArm1Length() + controller.getArm2Length()) + " cm");
+		} else {
+			Serial.println("Moving to (" + String(controller.getTargetX()) + ", " + String(controller.getTargetY()) + ")");
 		}
 	}
-  
-	//getAngleInput(&targetAngles);
-  getInput(&targetAngles, &targetLocation);
-
-  //animateCircle(&targetAngles, &t);
-
-  moveTowardsTarget(&servoAngles, &targetAngles);
-
-	moveServo(servoAngles.a1, servoPin1);
-	moveServo(servoAngles.a2, servoPin2);
-}
-
-void calculateInverseKinematics(int x, int y, Angles& target) {
-	int l1 = 17;
-	int l2 = 17;
-
-	float clamped_theta2 = min(1, max(-1, (x*x + y*y - l1*l1 - l2*l2) / (2*l1*l2)));
-    
-	float theta2 = acos(clamped_theta2);
-    if (sin(theta2) != 0) {
-		target.a1 = constrain((atan2(y, x) - atan2(l2*sin(theta2), l1 + l2*cos(theta2))) * 57.296, 0, 180);
-		target.a2 = constrain((atan2(y, x) - atan2(-l2*sin(theta2), l1 + l2*cos(theta2))) * 57.296, 0, 180);
-
-	}
-
-}
-
-void getInput(Angles* target, Point* p) {
-  if (Serial.available()) {
-    char serialData[10]; // Assuming the input won't exceed 10 characters
-    byte index = 0;
-
-    while (Serial.available() && index < 9) {
-      char incomingChar = Serial.read();
-      if (incomingChar == '\n') {
-        break; // End of input reached
-      }
-      serialData[index++] = incomingChar;
-    }
-    serialData[index] = '\0'; // Null-terminate the string
-
-    // Check if the command starts with 'A' or 'B'
-    char command = serialData[0];
-    if (command == 'x' || command == 'y') {
-      // Convert the rest of the string (excluding the command) to an integer
-      int value = strtol(serialData + 1, NULL, 10);
-
-      // Adjust the angle based on the command
-      if (value >= 5 && value <= 30) {
-        if (command == 'x') {
-          p->x = value;
-        } else if (command == 'y') {
-          p->y = value;
-        }
-
-        Serial.println("Target set to: " + String(p->x) + " " + String(p->y));
-
-        calculateInverseKinematics(p->x, p->y, *target);
-        Serial.println("Calculated angles: " + String(target->a1) + " " + String(target->a2));
-
-      }
-    } else {
-      if (command == 'a') {
-        target->a1 += 15;
-      } else if (command == 'd') {
-        target->a1 -= 15;
-      } else if (command == 'w') {
-        target->a2 -= 15;
-      } else if (command == 's') {
-        target->a2 += 15;
-      } else if (command == 'r') {
-        target->a1 = startAngles.a1;
-        target->a2 = startAngles.a2;
-      } else {
-        return;
-      }
-      target->a1  = constrain(target->a1, 0, 180);
-      target->a2 = constrain(target->a2, 0, 180);
-
-      Serial.println(">" + String(command) + " " + String(target->a1) + ", " + String(target->a2));
-    }
-  }
 }
 
 
+void animateObject(float& t)
+{
+	// CIRCLE
+	//float x = controller.getDefaultX() + sin(t) * 6;
+	//float y = controller.getDefaultY() + cos(t) * 6;
 
-void moveTowardsTarget(Angles* actual, Angles* target) {
-	if (actual->a1 >  target->a1) {
-	  actual->a1 -= 1;
-	} else if (actual->a1 < target->a1) {
-	  actual->a1 += 1;
-	}
+	// HEART
+	float radius = 0.4;
+	float x = controller.getDefaultX() + radius * 16 * pow(sin(t), 3);
+	float y = controller.getDefaultY() + radius * (13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t));
 
-	if (actual->a2 > target->a2) {
-	  actual->a2 -= 1;
-	} else if (actual->a2 < target->a2) {
-	  actual->a2 += 1;
-	}
-}
-
-void animateCircle(Angles* target, double* t) {
-
-  target->a1 = 110+sin(*t)*10;
-  target->a2 = 110+cos(*t)*10;
-
-  *t += 0.01;
-
-  if (*t > 314.2) {
-    *t = 0;
-  }
-}
-
-void task() {
-
+	controller.moveTo(x, y);
+	t += 0.005;
 }
 
 
