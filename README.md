@@ -4,4 +4,11 @@ This Arduino app controls a 2-axis robot that can draw shapes. If a led is attac
 
 ![image](https://github.com/rant4la/ArduinoRobotDrawer/assets/33716618/4cbb4506-a764-45a7-abed-63164a46aa7e)
 
-To change the image to draw, simply edit the animateObject() function in main.ino
+## Tutorial:
+
+1. Edit the animateObject() function in main.ino to change which image the robot draws.
+2. Upload the app
+3. Type 'c' in the Serial Monitor to start/stop animation
+4. Take a long exposure picture with lighttrail setting turned on. I use iOS app: Slow Camera.
+
+
