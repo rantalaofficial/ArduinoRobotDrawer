@@ -11,6 +11,24 @@ RobotController controller(17, 17, 17, 17, 1);
 
 bool animate = false;
 
+const float END_MARKER = -1;
+
+int shapeArrayX[200] = {23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,22,22,22,21,21,20,20,19,19,18,18,17,16,16,15,15,14,14,13,13,12,12,11,11,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,-1};
+int shapeArrayY[200] = {28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,10,11,12,12,13,13,14,14,15,15,16,17,17,16,16,15,15,14,14,13,13,12,12,11,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,-1};
+
+
+
+int calculateShapeSize() {
+	int size = 0;
+	while (shapeArrayX[size] != END_MARKER && size < 200) {
+		size++;
+	}
+	return size-1;
+}
+
+const int shapeSize = calculateShapeSize();
+const float shapeSpeed = 0.1;
+
 void setup()
 {	
 	pinMode(ledPin, OUTPUT);
@@ -37,7 +55,8 @@ void loop()
 	// getAngleInput(&targetAngles);
 	getInput();
 
-	if (animate) animateObject(t);
+	//if (animate) animateObject(t);
+	if (animate) animateShapeArray(t, shapeSpeed, shapeSize, shapeArrayX, shapeArrayY);
 	// animateCircle(&targetAngles, &t);
 	controller.updateAngles();
 	moveServo(controller.getCurrentAngle1(), servoPin1);
@@ -105,8 +124,8 @@ void getInput()
 				Serial.println("Moving to beginning of animation...");
 				digitalWrite(ledPin, LOW);
 				t = 0;
-				// This code moves to the start of the animation
-				animateObject(t);
+				//animateObject(t);
+				controller.moveTo(shapeArrayX[0], shapeArrayY[0]);
 				for (int i = 0; i < 100; i++) {
 					controller.updateAngles();
 					moveServo(controller.getCurrentAngle1(), servoPin1);
@@ -132,17 +151,48 @@ void getInput()
 	}
 }
 
+void animateShapeArray(float& t, float speed, int arraySize, int* xArray, int* yArray)
+{
+	if (t > arraySize) {
+		animate = false;
+		Serial.println("Animation finished");
+		return;
+	};
+
+	float x, y;
+	x = xArray[round(t)];
+	y = yArray[round(t)];
+	
+	controller.moveTo(x, y);
+
+	if (round(t + speed) != round(t)) {
+		Serial.println(String(round(t)) + "/" + String(arraySize));
+	}
+	t += speed;
+}
+
 
 void animateObject(float& t)
 {
-	// CIRCLE
-	//float x = controller.getDefaultX() + sin(t) * 6;
-	//float y = controller.getDefaultY() + cos(t) * 6;
-
+	float x, y;
 	// HEART
-	float radius = 0.4;
-	float x = controller.getDefaultX() + radius * 16 * pow(sin(t), 3);
-	float y = controller.getDefaultY() + radius * (13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t));
+	float scaleX = 0.4;
+	float scaleY = 0.5;
+	x = controller.getDefaultX() + scaleX * 16 * pow(sin(t), 3);
+	y = controller.getDefaultY() + scaleY * (13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t));
+
+	if (t > 2 * PI) {
+		float newT = t - 2 * PI;
+		if (newT > PI && newT < 2 * PI) {
+			x = controller.getDefaultX() + 2 * cos(PI);
+			y = controller.getDefaultY() + 3 * sin(0) + (newT-PI) * 2;
+		} else if (newT > 2*PI) {
+			return;
+		} else {
+			x = controller.getDefaultX() + 2 * cos(newT);
+			y = controller.getDefaultY() + 3 * sin(newT+PI);
+		}
+	}
 
 	controller.moveTo(x, y);
 	t += 0.005;
