@@ -1,4 +1,4 @@
-# ArduinoRobotController
+# ArduinoRobotDrawer
 
 This Arduino app controls a 2-axis robot that can draw shapes. If a led is attached to the end of the robot arm, it can be captured with long exposure time to produce images, like this:
 
