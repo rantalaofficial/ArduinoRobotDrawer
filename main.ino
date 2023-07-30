@@ -42,7 +42,6 @@ void loop()
 	controller.updateAngles();
 	moveServo(controller.getCurrentAngle1(), servoPin1);
 	moveServo(controller.getCurrentAngle2(), servoPin2);
-
 }
 
 void getInput()
@@ -103,16 +102,17 @@ void getInput()
 			animate = !animate;
 
 			if (animate) {
-				digitalWrite(servoPin, LOW);
+				Serial.println("Moving to beginning of animation...");
+				digitalWrite(ledPin, LOW);
 				t = 0;
 				// This code moves to the start of the animation
-				animateObject(0)
-				for (int i = 0; i < 1000; i++) {
+				animateObject(t);
+				for (int i = 0; i < 100; i++) {
 					controller.updateAngles();
 					moveServo(controller.getCurrentAngle1(), servoPin1);
 					moveServo(controller.getCurrentAngle2(), servoPin2);
 				}
-				digitalWrite(servoPin, HIGH);
+				digitalWrite(ledPin, HIGH);
 			}
 
 			Serial.println("Animation " + String(animate ? "enabled" : "disabled"));
