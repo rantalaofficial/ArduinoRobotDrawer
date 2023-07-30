@@ -103,8 +103,16 @@ void getInput()
 			animate = !animate;
 
 			if (animate) {
+				digitalWrite(servoPin, LOW);
 				t = 0;
+				// This code moves to the start of the animation
 				animateObject(0)
+				for (int i = 0; i < 1000; i++) {
+					controller.updateAngles();
+					moveServo(controller.getCurrentAngle1(), servoPin1);
+					moveServo(controller.getCurrentAngle2(), servoPin2);
+				}
+				digitalWrite(servoPin, HIGH);
 			}
 
 			Serial.println("Animation " + String(animate ? "enabled" : "disabled"));
