@@ -4,7 +4,9 @@ This Arduino app controls a 2-axis robot that can draw shapes. If a led is attac
 
 ![image](https://github.com/rant4la/ArduinoRobotDrawer/assets/33716618/4cbb4506-a764-45a7-abed-63164a46aa7e)
 
-The robot I desgined, 3d printed and assembled:
+The App uses inverse kinematics algorithm to control the position of the robot arm. 
+
+The physical robot I desgined, 3d printed and assembled:
 
 ![image](https://github.com/rantalaofficial/ArduinoRobotDrawer/assets/33716618/2c436d78-560c-47d2-828e-ef9112332bae)
 
